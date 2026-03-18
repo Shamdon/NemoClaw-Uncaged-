@@ -495,6 +495,188 @@ export default function register(api: OpenClawPluginApi): void {
     ],
   });
 
+  // Hugging Face Inference API — free tier for popular open-source models
+  api.registerProvider({
+    id: "huggingface",
+    label: "Hugging Face Inference API",
+    docsPath: "https://huggingface.co/docs/api-inference",
+    aliases: ["hf", "hugging-face"],
+    envVars: ["HF_TOKEN"],
+    models: {
+      chat: [
+        {
+          id: "meta-llama/Llama-3.3-70B-Instruct",
+          label: "Llama 3.3 70B Instruct",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+        {
+          id: "Qwen/Qwen2.5-72B-Instruct",
+          label: "Qwen 2.5 72B Instruct",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+        {
+          id: "mistralai/Mistral-7B-Instruct-v0.3",
+          label: "Mistral 7B Instruct v0.3",
+          contextWindow: 32768,
+          maxOutput: 4096,
+        },
+        {
+          id: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+          label: "DeepSeek R1 Distill Qwen 7B",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+      ],
+    },
+    auth: [
+      {
+        type: "bearer",
+        envVar: "HF_TOKEN",
+        headerName: "Authorization",
+        label: "Hugging Face Token",
+      },
+    ],
+  });
+
+  // Fireworks AI — fast open-source model hosting
+  api.registerProvider({
+    id: "fireworks",
+    label: "Fireworks AI",
+    docsPath: "https://docs.fireworks.ai",
+    aliases: ["fireworks-ai"],
+    envVars: ["FIREWORKS_API_KEY"],
+    models: {
+      chat: [
+        {
+          id: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+          label: "Llama 3.3 70B Instruct",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+        {
+          id: "accounts/fireworks/models/deepseek-r1",
+          label: "DeepSeek R1",
+          contextWindow: 163840,
+          maxOutput: 32768,
+        },
+        {
+          id: "accounts/fireworks/models/qwen2p5-72b-instruct",
+          label: "Qwen 2.5 72B Instruct",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+        {
+          id: "accounts/fireworks/models/mixtral-8x22b-instruct",
+          label: "Mixtral 8x22B Instruct",
+          contextWindow: 65536,
+          maxOutput: 8192,
+        },
+      ],
+    },
+    auth: [
+      {
+        type: "bearer",
+        envVar: "FIREWORKS_API_KEY",
+        headerName: "Authorization",
+        label: "Fireworks AI API Key",
+      },
+    ],
+  });
+
+  // OpenRouter — aggregates 200+ models including free ones
+  api.registerProvider({
+    id: "openrouter",
+    label: "OpenRouter",
+    docsPath: "https://openrouter.ai/docs",
+    aliases: ["open-router"],
+    envVars: ["OPENROUTER_API_KEY"],
+    models: {
+      chat: [
+        {
+          id: "meta-llama/llama-3.3-70b-instruct:free",
+          label: "Llama 3.3 70B Instruct (free)",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+        {
+          id: "deepseek/deepseek-r1:free",
+          label: "DeepSeek R1 (free)",
+          contextWindow: 163840,
+          maxOutput: 32768,
+        },
+        {
+          id: "google/gemma-3-27b-it:free",
+          label: "Gemma 3 27B Instruct (free)",
+          contextWindow: 131072,
+          maxOutput: 8192,
+        },
+        {
+          id: "mistralai/mistral-7b-instruct:free",
+          label: "Mistral 7B Instruct (free)",
+          contextWindow: 32768,
+          maxOutput: 4096,
+        },
+      ],
+    },
+    auth: [
+      {
+        type: "bearer",
+        envVar: "OPENROUTER_API_KEY",
+        headerName: "Authorization",
+        label: "OpenRouter API Key",
+      },
+    ],
+  });
+
+  // Ollama — local open-source runtime, no API key required
+  api.registerProvider({
+    id: "ollama",
+    label: "Ollama (local)",
+    docsPath: "https://ollama.com/library",
+    aliases: ["ollama-local"],
+    envVars: [],
+    models: {
+      chat: [
+        // Illustrative defaults; actual models depend on what the user has pulled
+        { id: "llama3.3", label: "Llama 3.3", contextWindow: 131072, maxOutput: 8192 },
+        { id: "deepseek-r1", label: "DeepSeek R1", contextWindow: 131072, maxOutput: 32768 },
+        { id: "qwen2.5", label: "Qwen 2.5", contextWindow: 131072, maxOutput: 8192 },
+        { id: "mistral", label: "Mistral 7B", contextWindow: 32768, maxOutput: 4096 },
+      ],
+    },
+    auth: [{ type: "none", label: "No API key required" }],
+  });
+
+  // LM Studio — local server, no API key, OpenAI-compatible on port 1234
+  api.registerProvider({
+    id: "lm-studio",
+    label: "LM Studio (local)",
+    docsPath: "https://lmstudio.ai/docs/local-server",
+    aliases: ["lmstudio"],
+    envVars: [],
+    models: {
+      // Models are loaded dynamically in LM Studio; catalog is intentionally empty
+      chat: [],
+    },
+    auth: [{ type: "none", label: "No API key required" }],
+  });
+
+  // LocalAI — self-hosted OpenAI-compatible runtime, no API key
+  api.registerProvider({
+    id: "localai",
+    label: "LocalAI (local)",
+    docsPath: "https://localai.io/docs",
+    aliases: ["local-ai"],
+    envVars: [],
+    models: {
+      // Models depend on user's LocalAI installation
+      chat: [],
+    },
+    auth: [{ type: "none", label: "No API key required" }],
+  });
+
   const bannerEndpoint = onboardCfg?.endpointType ?? "build.nvidia.com";
   const bannerModel = onboardCfg?.model ?? "nvidia/nemotron-3-super-120b-a12b";
 

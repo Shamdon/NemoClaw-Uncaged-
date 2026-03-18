@@ -18,7 +18,12 @@ export type EndpointType =
   | "groq"
   | "together"
   | "mistral"
-  | "google";
+  | "google"
+  | "huggingface"
+  | "fireworks"
+  | "openrouter"
+  | "lm-studio"
+  | "localai";
 
 export interface NemoClawOnboardConfig {
   endpointType: EndpointType;

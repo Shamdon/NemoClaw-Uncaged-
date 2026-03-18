@@ -31,9 +31,14 @@ const ENDPOINT_TYPES: EndpointType[] = [
   "together",
   "mistral",
   "google",
+  "huggingface",
+  "fireworks",
+  "openrouter",
+  "ollama",
+  "lm-studio",
+  "localai",
   "nim-local",
   "vllm",
-  "ollama",
   "custom",
 ];
 const SUPPORTED_ENDPOINT_TYPES: EndpointType[] = [
@@ -45,6 +50,12 @@ const SUPPORTED_ENDPOINT_TYPES: EndpointType[] = [
   "together",
   "mistral",
   "google",
+  "huggingface",
+  "fireworks",
+  "openrouter",
+  "ollama",
+  "lm-studio",
+  "localai",
 ];
 
 function isExperimentalEnabled(): boolean {
@@ -63,6 +74,9 @@ const PROVIDER_ENDPOINT_URLS: Partial<Record<EndpointType, string>> = {
   together: "https://api.together.xyz/v1",
   mistral: "https://api.mistral.ai/v1",
   google: "https://generativelanguage.googleapis.com/v1beta/openai",
+  huggingface: "https://api-inference.huggingface.co/v1",
+  fireworks: "https://api.fireworks.ai/inference/v1",
+  openrouter: "https://openrouter.ai/api/v1",
 };
 
 // Per-provider API key env var names
@@ -76,9 +90,15 @@ const PROVIDER_CREDENTIAL_ENVS: Partial<Record<EndpointType, string>> = {
   together: "TOGETHER_API_KEY",
   mistral: "MISTRAL_API_KEY",
   google: "GOOGLE_API_KEY",
+  huggingface: "HF_TOKEN",
+  fireworks: "FIREWORKS_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
   "nim-local": "NIM_API_KEY",
   vllm: "OPENAI_API_KEY",
   ollama: "OPENAI_API_KEY",
+  // lm-studio and localai require no real API key — placeholder only
+  "lm-studio": "OPENAI_API_KEY",
+  localai: "OPENAI_API_KEY",
 };
 
 // Provider-specific model catalogs
@@ -125,6 +145,37 @@ const PROVIDER_MODELS: Partial<Record<EndpointType, Array<{ id: string; label: s
     { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
     { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
   ],
+  // Hugging Face Inference API — popular open-source models
+  huggingface: [
+    { id: "meta-llama/Llama-3.3-70B-Instruct", label: "Llama 3.3 70B Instruct" },
+    { id: "Qwen/Qwen2.5-72B-Instruct", label: "Qwen 2.5 72B Instruct" },
+    { id: "mistralai/Mistral-7B-Instruct-v0.3", label: "Mistral 7B Instruct v0.3" },
+    { id: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", label: "DeepSeek R1 Distill Qwen 7B" },
+  ],
+  // Fireworks AI — fast open-source model hosting
+  fireworks: [
+    {
+      id: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+      label: "Llama 3.3 70B Instruct",
+    },
+    { id: "accounts/fireworks/models/deepseek-r1", label: "DeepSeek R1" },
+    {
+      id: "accounts/fireworks/models/qwen2p5-72b-instruct",
+      label: "Qwen 2.5 72B Instruct",
+    },
+    {
+      id: "accounts/fireworks/models/mixtral-8x22b-instruct",
+      label: "Mixtral 8x22B Instruct",
+    },
+  ],
+  // OpenRouter — aggregates providers; models marked :free have no usage cost
+  openrouter: [
+    { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B Instruct (free)" },
+    { id: "deepseek/deepseek-r1:free", label: "DeepSeek R1 (free)" },
+    { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B Instruct (free)" },
+    { id: "mistralai/mistral-7b-instruct:free", label: "Mistral 7B Instruct (free)" },
+  ],
+  // lm-studio and localai: no static catalog — live-discovered from running server
 };
 
 // Fallback NVIDIA model list (used for NCP, nim-local, vllm, custom, ollama)
@@ -149,12 +200,22 @@ function resolveProfile(endpointType: EndpointType): string {
       return "mistral";
     case "google":
       return "google";
+    case "huggingface":
+      return "huggingface";
+    case "fireworks":
+      return "fireworks";
+    case "openrouter":
+      return "openrouter";
+    case "ollama":
+      return "ollama";
+    case "lm-studio":
+      return "lm-studio";
+    case "localai":
+      return "localai";
     case "nim-local":
       return "nim-local";
     case "vllm":
       return "vllm";
-    case "ollama":
-      return "ollama";
   }
 }
 
@@ -177,12 +238,22 @@ function resolveProviderName(endpointType: EndpointType): string {
       return "mistral";
     case "google":
       return "google";
+    case "huggingface":
+      return "huggingface";
+    case "fireworks":
+      return "fireworks";
+    case "openrouter":
+      return "openrouter";
+    case "ollama":
+      return "ollama-local";
+    case "lm-studio":
+      return "lm-studio-local";
+    case "localai":
+      return "localai-local";
     case "nim-local":
       return "nim-local";
     case "vllm":
       return "vllm-local";
-    case "ollama":
-      return "ollama-local";
   }
 }
 
@@ -201,9 +272,11 @@ function isNonInteractive(opts: OnboardOptions): boolean {
   return true;
 }
 
+// Local runtimes that serve an OpenAI-compatible API without any authentication
+const KEYLESS_ENDPOINTS = new Set<EndpointType>(["vllm", "ollama", "lm-studio", "localai"]);
+
 function endpointRequiresApiKey(endpointType: EndpointType): boolean {
-  // Local-only endpoints don't need a real API key
-  return endpointType !== "vllm" && endpointType !== "ollama";
+  return !KEYLESS_ENDPOINTS.has(endpointType);
 }
 
 function defaultCredentialForEndpoint(endpointType: EndpointType): string {
@@ -211,7 +284,11 @@ function defaultCredentialForEndpoint(endpointType: EndpointType): string {
     case "vllm":
       return "dummy";
     case "ollama":
-      return "ollama";
+    case "lm-studio":
+    case "localai":
+      // These servers ignore the Authorization header entirely; use a
+      // non-empty placeholder so OpenShell's openai provider is satisfied.
+      return "no-key";
     default:
       return "";
   }
@@ -235,15 +312,36 @@ function getApiKeyDocsUrl(endpointType: EndpointType): string {
       return "https://console.mistral.ai/api-keys/";
     case "google":
       return "https://aistudio.google.com/app/apikey";
+    case "huggingface":
+      return "https://huggingface.co/settings/tokens";
+    case "fireworks":
+      return "https://fireworks.ai/account/api-keys";
+    case "openrouter":
+      return "https://openrouter.ai/settings/keys";
     default:
       return "https://build.nvidia.com/settings/api-keys";
   }
 }
 
-function detectOllama(): { installed: boolean; running: boolean } {
-  const installed = testCommand("command -v ollama >/dev/null 2>&1");
-  const running = testCommand("curl -sf http://localhost:11434/api/tags >/dev/null 2>&1");
-  return { installed, running };
+interface LocalRuntimeStatus {
+  ollama: { installed: boolean; running: boolean };
+  lmStudio: { running: boolean };
+  localai: { running: boolean };
+}
+
+function detectLocalRuntimes(): LocalRuntimeStatus {
+  return {
+    ollama: {
+      installed: testCommand("command -v ollama >/dev/null 2>&1"),
+      running: testCommand("curl -sf http://localhost:11434/api/tags >/dev/null 2>&1"),
+    },
+    lmStudio: {
+      running: testCommand("curl -sf http://localhost:1234/v1/models >/dev/null 2>&1"),
+    },
+    localai: {
+      running: testCommand("curl -sf http://localhost:8080/v1/models >/dev/null 2>&1"),
+    },
+  };
 }
 
 function testCommand(command: string): boolean {
@@ -266,9 +364,13 @@ function showConfig(config: NemoClawOnboardConfig, logger: PluginLogger): void {
   logger.info(`  Onboarded:   ${config.onboardedAt}`);
 }
 
-async function promptEndpoint(
-  ollama: { installed: boolean; running: boolean },
-): Promise<EndpointType> {
+async function promptEndpoint(local: LocalRuntimeStatus): Promise<EndpointType> {
+  const ollamaHint = local.ollama.running
+    ? "running on localhost:11434"
+    : local.ollama.installed
+      ? "installed — start with: ollama serve"
+      : "localhost:11434";
+
   const options = [
     {
       label: "NVIDIA Build (build.nvidia.com)",
@@ -310,6 +412,40 @@ async function promptEndpoint(
       value: "google",
       hint: "Gemini 2.0 Flash, Gemini 1.5 Pro and more",
     },
+    {
+      label: "Hugging Face Inference API (api-inference.huggingface.co)",
+      value: "huggingface",
+      hint: "open-source models — Llama, Qwen, Mistral, DeepSeek",
+    },
+    {
+      label: "Fireworks AI (api.fireworks.ai)",
+      value: "fireworks",
+      hint: "fast open-source hosting — Llama, DeepSeek, Mixtral, Qwen",
+    },
+    {
+      label: "OpenRouter (openrouter.ai) — includes free models",
+      value: "openrouter",
+      hint: "aggregates 200+ models; :free models require no credits",
+    },
+    {
+      label: `Ollama (local, no API key)`,
+      value: "ollama",
+      hint: ollamaHint,
+    },
+    {
+      label: `LM Studio (local, no API key)`,
+      value: "lm-studio",
+      hint: local.lmStudio.running
+        ? "running on localhost:1234"
+        : "start LM Studio → Local Server tab",
+    },
+    {
+      label: "LocalAI (local, no API key)",
+      value: "localai",
+      hint: local.localai.running
+        ? "running on localhost:8080"
+        : "self-hosted OpenAI-compatible runtime",
+    },
   ];
 
   if (isExperimentalEnabled()) {
@@ -322,12 +458,7 @@ async function promptEndpoint(
       {
         label: "Local vLLM [experimental]",
         value: "vllm",
-        hint: "experimental — local development",
-      },
-      {
-        label: "Local Ollama [experimental]",
-        value: "ollama",
-        hint: `experimental — ${ollama.installed ? "installed locally" : "localhost:11434"}`,
+        hint: "experimental — local vLLM server",
       },
     );
   }
@@ -383,12 +514,24 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
     }
     endpointType = ep;
   } else {
-    const ollama = detectOllama();
-    if (ollama.running && isExperimentalEnabled()) {
-      logger.info("Detected Ollama on localhost:11434. Using it for onboarding.");
-      endpointType = "ollama";
+    const local = detectLocalRuntimes();
+    // Auto-select a running local runtime only when experimental mode is on
+    // (avoids surprising users who run these services for unrelated reasons).
+    if (isExperimentalEnabled()) {
+      if (local.lmStudio.running) {
+        logger.info("Detected LM Studio on localhost:1234. Using it for onboarding.");
+        endpointType = "lm-studio";
+      } else if (local.localai.running) {
+        logger.info("Detected LocalAI on localhost:8080. Using it for onboarding.");
+        endpointType = "localai";
+      } else if (local.ollama.running) {
+        logger.info("Detected Ollama on localhost:11434. Using it for onboarding.");
+        endpointType = "ollama";
+      } else {
+        endpointType = await promptEndpoint(local);
+      }
     } else {
-      endpointType = await promptEndpoint(ollama);
+      endpointType = await promptEndpoint(local);
     }
   }
 
@@ -407,7 +550,10 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
     case "together":
     case "mistral":
     case "google":
-      // All managed cloud providers have a fixed endpoint
+    case "huggingface":
+    case "fireworks":
+    case "openrouter":
+      // All managed cloud providers have a fixed, well-known endpoint
       endpointUrl = fixedUrl!;
       break;
     case "ncp":
@@ -426,6 +572,12 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
       break;
     case "ollama":
       endpointUrl = opts.endpointUrl ?? `${HOST_GATEWAY_URL}:11434/v1`;
+      break;
+    case "lm-studio":
+      endpointUrl = opts.endpointUrl ?? `${HOST_GATEWAY_URL}:1234/v1`;
+      break;
+    case "localai":
+      endpointUrl = opts.endpointUrl ?? `${HOST_GATEWAY_URL}:8080/v1`;
       break;
     case "custom":
       endpointUrl = opts.endpointUrl ?? (await promptInput("Custom endpoint URL"));
@@ -446,8 +598,10 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
     if (opts.apiKey) {
       apiKey = opts.apiKey;
     } else {
-      // Check for the provider-specific env var first
-      const envKey = process.env[credentialEnv] ?? process.env.NVIDIA_API_KEY;
+      // Check the provider-specific env var; only fall back to NVIDIA_API_KEY for NVIDIA endpoints
+      const isNvidiaEndpoint = endpointType === "build" || endpointType === "ncp";
+      const envKey =
+        process.env[credentialEnv] ?? (isNvidiaEndpoint ? process.env.NVIDIA_API_KEY : undefined);
       const envVarName = process.env[credentialEnv] ? credentialEnv : "NVIDIA_API_KEY";
       const apiKeyDocs = getApiKeyDocsUrl(endpointType);
       if (envKey) {
@@ -471,10 +625,9 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
   }
 
   // Step 4: Validate API Key
-  // For local endpoints (vllm, ollama, nim-local), validation is best-effort since the
-  // service may not be running yet during onboarding.
-  const isLocalEndpoint =
-    endpointType === "vllm" || endpointType === "ollama" || endpointType === "nim-local";
+  // For local endpoints, validation is best-effort since the service may not be
+  // running yet during onboarding.
+  const isLocalEndpoint = KEYLESS_ENDPOINTS.has(endpointType) || endpointType === "nim-local";
   logger.info("");
   logger.info(`Validating ${requiresApiKey ? "credential" : "endpoint"} against ${endpointUrl}...`);
   const validation = await validateApiKey(apiKey, endpointUrl);
@@ -504,23 +657,36 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
     const catalogModels = PROVIDER_MODELS[endpointType];
     let modelOptions: Array<{ label: string; value: string }>;
 
-    if (catalogModels) {
-      // Use the static catalog for this provider (validates against live list if available)
-      const liveIds = new Set(validation.models);
-      const confirmed = catalogModels.filter((m) => liveIds.size === 0 || liveIds.has(m.id));
-      modelOptions =
-        confirmed.length > 0
-          ? confirmed.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }))
-          : catalogModels.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }));
-    } else if (validation.models.length > 0) {
-      // Use live-discovered models when no catalog is available
-      modelOptions = validation.models.map((id) => ({ label: id, value: id }));
+    if (validation.models.length > 0) {
+      // Prefer live-discovered models so we always reflect what's actually available
+      if (catalogModels) {
+        // Cross-reference with catalog to surface friendly labels
+        const catalogById = new Map(catalogModels.map((m) => [m.id, m.label]));
+        modelOptions = validation.models.map((id) => ({
+          label: catalogById.has(id) ? `${catalogById.get(id)!} (${id})` : id,
+          value: id,
+        }));
+      } else {
+        modelOptions = validation.models.map((id) => ({ label: id, value: id }));
+      }
+    } else if (catalogModels) {
+      // No live response — fall back to static catalog
+      modelOptions = catalogModels.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }));
+    } else if (endpointType === "lm-studio" || endpointType === "localai") {
+      // Local runtime with no loaded models yet — ask the user to type the model name
+      logger.warn(
+        `No models found at ${endpointUrl}. Make sure a model is loaded in ${endpointType === "lm-studio" ? "LM Studio (Local Server tab)" : "LocalAI"}, then re-run onboarding.`,
+      );
+      model = await promptInput("Enter model identifier (e.g. lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF)");
     } else {
       // Last-resort fallback to NVIDIA defaults
       modelOptions = DEFAULT_MODELS.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }));
     }
 
-    model = await promptSelect("Select your primary model:", modelOptions);
+    // modelOptions may be undefined if we already set `model` above via promptInput
+    if (!model) {
+      model = await promptSelect("Select your primary model:", modelOptions!);
+    }
   }
 
   // Step 6: Resolve profile
