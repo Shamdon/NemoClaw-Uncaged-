@@ -9,12 +9,20 @@ digest: ""  # Computed at release time
 profiles:
   - default
   - ncp
+  - openai
+  - anthropic
+  - groq
+  - together
+  - mistral
+  - google
   - nim-local
   - vllm
 
 description: |
   NemoClaw blueprint: orchestrates OpenClaw sandbox creation, migration,
   and NIM/vLLM inference routing inside OpenShell.
+  Supports NVIDIA NIM, OpenAI, Anthropic, Groq, Together AI, Mistral AI,
+  and Google Gemini as inference providers.
 
 components:
   sandbox:
@@ -53,6 +61,48 @@ components:
         model: "nvidia/nemotron-3-nano-30b-a3b"
         credential_env: "OPENAI_API_KEY"
         credential_default: "dummy"
+
+      openai:
+        provider_type: "openai"
+        provider_name: "openai"
+        endpoint: "https://api.openai.com/v1"
+        model: "gpt-4o"
+        credential_env: "OPENAI_API_KEY"
+
+      anthropic:
+        provider_type: "anthropic"
+        provider_name: "anthropic"
+        endpoint: "https://api.anthropic.com/v1"
+        model: "claude-3-7-sonnet-20250219"
+        credential_env: "ANTHROPIC_API_KEY"
+
+      groq:
+        provider_type: "openai"
+        provider_name: "groq"
+        endpoint: "https://api.groq.com/openai/v1"
+        model: "llama-3.3-70b-versatile"
+        credential_env: "GROQ_API_KEY"
+
+      together:
+        provider_type: "openai"
+        provider_name: "together"
+        endpoint: "https://api.together.xyz/v1"
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        credential_env: "TOGETHER_API_KEY"
+
+      mistral:
+        provider_type: "openai"
+        provider_name: "mistral"
+        endpoint: "https://api.mistral.ai/v1"
+        model: "mistral-large-latest"
+        credential_env: "MISTRAL_API_KEY"
+
+      google:
+        provider_type: "openai"
+        provider_name: "google"
+        endpoint: "https://generativelanguage.googleapis.com/v1beta/openai"
+        model: "gemini-2.0-flash"
+        credential_env: "GOOGLE_API_KEY"
 
   policy:
     base: "sandboxes/openclaw/policy.yaml"

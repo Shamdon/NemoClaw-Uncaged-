@@ -22,8 +22,30 @@ export interface OnboardOptions {
   pluginConfig: NemoClawConfig;
 }
 
-const ENDPOINT_TYPES: EndpointType[] = ["build", "ncp", "nim-local", "vllm", "ollama", "custom"];
-const SUPPORTED_ENDPOINT_TYPES: EndpointType[] = ["build", "ncp"];
+const ENDPOINT_TYPES: EndpointType[] = [
+  "build",
+  "ncp",
+  "openai",
+  "anthropic",
+  "groq",
+  "together",
+  "mistral",
+  "google",
+  "nim-local",
+  "vllm",
+  "ollama",
+  "custom",
+];
+const SUPPORTED_ENDPOINT_TYPES: EndpointType[] = [
+  "build",
+  "ncp",
+  "openai",
+  "anthropic",
+  "groq",
+  "together",
+  "mistral",
+  "google",
+];
 
 function isExperimentalEnabled(): boolean {
   return process.env.NEMOCLAW_EXPERIMENTAL === "1";
@@ -32,12 +54,81 @@ function isExperimentalEnabled(): boolean {
 const BUILD_ENDPOINT_URL = "https://integrate.api.nvidia.com/v1";
 const HOST_GATEWAY_URL = "http://host.openshell.internal";
 
-const DEFAULT_MODELS = [
-  { id: "nvidia/nemotron-3-super-120b-a12b", label: "Nemotron 3 Super 120B" },
-  { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1", label: "Nemotron Ultra 253B" },
-  { id: "nvidia/llama-3.3-nemotron-super-49b-v1.5", label: "Nemotron Super 49B v1.5" },
-  { id: "nvidia/nemotron-3-nano-30b-a3b", label: "Nemotron 3 Nano 30B" },
-];
+// Endpoint URLs for managed cloud providers
+const PROVIDER_ENDPOINT_URLS: Partial<Record<EndpointType, string>> = {
+  build: BUILD_ENDPOINT_URL,
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com/v1",
+  groq: "https://api.groq.com/openai/v1",
+  together: "https://api.together.xyz/v1",
+  mistral: "https://api.mistral.ai/v1",
+  google: "https://generativelanguage.googleapis.com/v1beta/openai",
+};
+
+// Per-provider API key env var names
+const PROVIDER_CREDENTIAL_ENVS: Partial<Record<EndpointType, string>> = {
+  build: "NVIDIA_API_KEY",
+  ncp: "NVIDIA_API_KEY",
+  custom: "NVIDIA_API_KEY",
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  groq: "GROQ_API_KEY",
+  together: "TOGETHER_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  google: "GOOGLE_API_KEY",
+  "nim-local": "NIM_API_KEY",
+  vllm: "OPENAI_API_KEY",
+  ollama: "OPENAI_API_KEY",
+};
+
+// Provider-specific model catalogs
+const PROVIDER_MODELS: Partial<Record<EndpointType, Array<{ id: string; label: string }>>> = {
+  build: [
+    { id: "nvidia/nemotron-3-super-120b-a12b", label: "Nemotron 3 Super 120B" },
+    { id: "nvidia/llama-3.1-nemotron-ultra-253b-v1", label: "Nemotron Ultra 253B" },
+    { id: "nvidia/llama-3.3-nemotron-super-49b-v1.5", label: "Nemotron Super 49B v1.5" },
+    { id: "nvidia/nemotron-3-nano-30b-a3b", label: "Nemotron 3 Nano 30B" },
+  ],
+  openai: [
+    { id: "gpt-4o", label: "GPT-4o" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini" },
+    { id: "o3-mini", label: "o3-mini" },
+    { id: "o1", label: "o1" },
+  ],
+  anthropic: [
+    { id: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
+    { id: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
+    { id: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
+    { id: "claude-3-opus-20240229", label: "Claude 3 Opus" },
+  ],
+  groq: [
+    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile" },
+    { id: "deepseek-r1-distill-llama-70b", label: "DeepSeek R1 Distill Llama 70B" },
+    { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
+    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant" },
+  ],
+  together: [
+    { id: "meta-llama/Llama-3.3-70B-Instruct-Turbo", label: "Llama 3.3 70B Instruct Turbo" },
+    { id: "deepseek-ai/DeepSeek-R1", label: "DeepSeek R1" },
+    { id: "mistralai/Mixtral-8x7B-Instruct-v0.1", label: "Mixtral 8x7B Instruct" },
+    { id: "Qwen/QwQ-32B-Preview", label: "Qwen QwQ 32B Preview" },
+  ],
+  mistral: [
+    { id: "mistral-large-latest", label: "Mistral Large" },
+    { id: "mistral-small-latest", label: "Mistral Small" },
+    { id: "codestral-latest", label: "Codestral" },
+    { id: "open-mistral-nemo", label: "Mistral Nemo (open)" },
+  ],
+  google: [
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { id: "gemini-2.0-flash-thinking-exp", label: "Gemini 2.0 Flash Thinking (exp)" },
+    { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+    { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+  ],
+};
+
+// Fallback NVIDIA model list (used for NCP, nim-local, vllm, custom, ollama)
+const DEFAULT_MODELS = PROVIDER_MODELS.build!;
 
 function resolveProfile(endpointType: EndpointType): string {
   switch (endpointType) {
@@ -46,6 +137,18 @@ function resolveProfile(endpointType: EndpointType): string {
     case "ncp":
     case "custom":
       return "ncp";
+    case "openai":
+      return "openai";
+    case "anthropic":
+      return "anthropic";
+    case "groq":
+      return "groq";
+    case "together":
+      return "together";
+    case "mistral":
+      return "mistral";
+    case "google":
+      return "google";
     case "nim-local":
       return "nim-local";
     case "vllm":
@@ -62,6 +165,18 @@ function resolveProviderName(endpointType: EndpointType): string {
     case "ncp":
     case "custom":
       return "nvidia-ncp";
+    case "openai":
+      return "openai";
+    case "anthropic":
+      return "anthropic";
+    case "groq":
+      return "groq";
+    case "together":
+      return "together";
+    case "mistral":
+      return "mistral";
+    case "google":
+      return "google";
     case "nim-local":
       return "nim-local";
     case "vllm":
@@ -72,35 +187,23 @@ function resolveProviderName(endpointType: EndpointType): string {
 }
 
 function resolveCredentialEnv(endpointType: EndpointType): string {
-  switch (endpointType) {
-    case "build":
-    case "ncp":
-    case "custom":
-      return "NVIDIA_API_KEY";
-    case "nim-local":
-      return "NIM_API_KEY";
-    case "vllm":
-    case "ollama":
-      return "OPENAI_API_KEY";
-  }
+  return PROVIDER_CREDENTIAL_ENVS[endpointType] ?? "OPENAI_API_KEY";
 }
 
 function isNonInteractive(opts: OnboardOptions): boolean {
   if (!opts.endpoint || !opts.model) return false;
   const ep = opts.endpoint as EndpointType;
   if (endpointRequiresApiKey(ep) && !opts.apiKey) return false;
-  if ((ep === "ncp" || ep === "nim-local" || ep === "custom") && !opts.endpointUrl) return false;
+  // These endpoints require a custom URL to be specified
+  const requiresCustomUrl = ep === "ncp" || ep === "nim-local" || ep === "custom";
+  if (requiresCustomUrl && !opts.endpointUrl) return false;
   if (ep === "ncp" && !opts.ncpPartner) return false;
   return true;
 }
 
 function endpointRequiresApiKey(endpointType: EndpointType): boolean {
-  return (
-    endpointType === "build" ||
-    endpointType === "ncp" ||
-    endpointType === "nim-local" ||
-    endpointType === "custom"
-  );
+  // Local-only endpoints don't need a real API key
+  return endpointType !== "vllm" && endpointType !== "ollama";
 }
 
 function defaultCredentialForEndpoint(endpointType: EndpointType): string {
@@ -111,6 +214,29 @@ function defaultCredentialForEndpoint(endpointType: EndpointType): string {
       return "ollama";
     default:
       return "";
+  }
+}
+
+function getApiKeyDocsUrl(endpointType: EndpointType): string {
+  switch (endpointType) {
+    case "build":
+      return "https://build.nvidia.com/settings/api-keys";
+    case "ncp":
+      return "https://www.nvidia.com/en-us/ai/cloud-partners/";
+    case "openai":
+      return "https://platform.openai.com/api-keys";
+    case "anthropic":
+      return "https://console.anthropic.com/settings/keys";
+    case "groq":
+      return "https://console.groq.com/keys";
+    case "together":
+      return "https://api.together.xyz/settings/api-keys";
+    case "mistral":
+      return "https://console.mistral.ai/api-keys/";
+    case "google":
+      return "https://aistudio.google.com/app/apikey";
+    default:
+      return "https://build.nvidia.com/settings/api-keys";
   }
 }
 
@@ -153,6 +279,36 @@ async function promptEndpoint(
       label: "NVIDIA Cloud Partner (NCP)",
       value: "ncp",
       hint: "dedicated capacity, SLA-backed",
+    },
+    {
+      label: "OpenAI (api.openai.com)",
+      value: "openai",
+      hint: "GPT-4o, o3-mini, o1 and more",
+    },
+    {
+      label: "Anthropic (api.anthropic.com)",
+      value: "anthropic",
+      hint: "Claude 3.7 Sonnet, Claude 3.5 Sonnet and more",
+    },
+    {
+      label: "Groq (api.groq.com)",
+      value: "groq",
+      hint: "ultra-fast inference — Llama 3.3, DeepSeek R1, Mixtral",
+    },
+    {
+      label: "Together AI (api.together.xyz)",
+      value: "together",
+      hint: "open-source model hosting — Llama, DeepSeek, Qwen",
+    },
+    {
+      label: "Mistral AI (api.mistral.ai)",
+      value: "mistral",
+      hint: "Mistral Large, Codestral, Mistral Nemo",
+    },
+    {
+      label: "Google Gemini (generativelanguage.googleapis.com)",
+      value: "google",
+      hint: "Gemini 2.0 Flash, Gemini 1.5 Pro and more",
     },
   ];
 
@@ -240,9 +396,19 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
   let endpointUrl: string;
   let ncpPartner: string | null = null;
 
+  // Check if this endpoint has a fixed well-known URL
+  const fixedUrl = PROVIDER_ENDPOINT_URLS[endpointType];
+
   switch (endpointType) {
     case "build":
-      endpointUrl = BUILD_ENDPOINT_URL;
+    case "openai":
+    case "anthropic":
+    case "groq":
+    case "together":
+    case "mistral":
+    case "google":
+      // All managed cloud providers have a fixed endpoint
+      endpointUrl = fixedUrl!;
       break;
     case "ncp":
       ncpPartner = opts.ncpPartner ?? (await promptInput("NCP partner name"));
@@ -280,14 +446,17 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
     if (opts.apiKey) {
       apiKey = opts.apiKey;
     } else {
-      const envKey = process.env.NVIDIA_API_KEY;
+      // Check for the provider-specific env var first
+      const envKey = process.env[credentialEnv] ?? process.env.NVIDIA_API_KEY;
+      const envVarName = process.env[credentialEnv] ? credentialEnv : "NVIDIA_API_KEY";
+      const apiKeyDocs = getApiKeyDocsUrl(endpointType);
       if (envKey) {
-        logger.info(`Detected NVIDIA_API_KEY in environment (${maskApiKey(envKey)})`);
+        logger.info(`Detected ${envVarName} in environment (${maskApiKey(envKey)})`);
         const useEnv = nonInteractive ? true : await promptConfirm("Use this key?");
-        apiKey = useEnv ? envKey : await promptInput("Enter your NVIDIA API key");
+        apiKey = useEnv ? envKey : await promptInput(`Enter your ${credentialEnv}`);
       } else {
-        logger.info("Get an API key from: https://build.nvidia.com/settings/api-keys");
-        apiKey = await promptInput("Enter your NVIDIA API key");
+        logger.info(`Get an API key from: ${apiKeyDocs}`);
+        apiKey = await promptInput(`Enter your ${credentialEnv}`);
       }
     }
   } else {
@@ -317,7 +486,7 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
       );
     } else {
       logger.error(`API key validation failed: ${validation.error ?? "unknown error"}`);
-      logger.info("Check your key at https://build.nvidia.com/settings/api-keys");
+      logger.info(`Check your key at: ${getApiKeyDocsUrl(endpointType)}`);
       return;
     }
   } else {
@@ -331,12 +500,25 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
   if (opts.model) {
     model = opts.model;
   } else {
-    // Build model options: prefer Nemotron models from the endpoint, fall back to defaults
-    const nemotronModels = validation.models.filter((m) => m.includes("nemotron"));
-    const modelOptions =
-      nemotronModels.length > 0
-        ? nemotronModels.map((id) => ({ label: id, value: id }))
-        : DEFAULT_MODELS.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }));
+    // Use provider-specific catalog, or fall back to live-discovered models
+    const catalogModels = PROVIDER_MODELS[endpointType];
+    let modelOptions: Array<{ label: string; value: string }>;
+
+    if (catalogModels) {
+      // Use the static catalog for this provider (validates against live list if available)
+      const liveIds = new Set(validation.models);
+      const confirmed = catalogModels.filter((m) => liveIds.size === 0 || liveIds.has(m.id));
+      modelOptions =
+        confirmed.length > 0
+          ? confirmed.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }))
+          : catalogModels.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }));
+    } else if (validation.models.length > 0) {
+      // Use live-discovered models when no catalog is available
+      modelOptions = validation.models.map((id) => ({ label: id, value: id }));
+    } else {
+      // Last-resort fallback to NVIDIA defaults
+      modelOptions = DEFAULT_MODELS.map((m) => ({ label: `${m.label} (${m.id})`, value: m.id }));
+    }
 
     model = await promptSelect("Select your primary model:", modelOptions);
   }
@@ -374,6 +556,10 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
   logger.info("Applying configuration...");
 
   // 7a: Create/update provider
+  // Anthropic uses its own provider type; all other providers are OpenAI-compatible
+  const openShellProviderType = endpointType === "anthropic" ? "anthropic" : "openai";
+  const openShellBaseUrlKey =
+    endpointType === "anthropic" ? "ANTHROPIC_BASE_URL" : "OPENAI_BASE_URL";
   try {
     execOpenShell([
       "provider",
@@ -381,11 +567,11 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
       "--name",
       providerName,
       "--type",
-      "openai",
+      openShellProviderType,
       "--credential",
       `${credentialEnv}=${apiKey}`,
       "--config",
-      `OPENAI_BASE_URL=${endpointUrl}`,
+      `${openShellBaseUrlKey}=${endpointUrl}`,
     ]);
     logger.info(`Created provider: ${providerName}`);
   } catch (err) {
@@ -400,7 +586,7 @@ export async function cliOnboard(opts: OnboardOptions): Promise<void> {
           "--credential",
           `${credentialEnv}=${apiKey}`,
           "--config",
-          `OPENAI_BASE_URL=${endpointUrl}`,
+          `${openShellBaseUrlKey}=${endpointUrl}`,
         ]);
         logger.info(`Updated provider: ${providerName}`);
       } catch (updateErr) {

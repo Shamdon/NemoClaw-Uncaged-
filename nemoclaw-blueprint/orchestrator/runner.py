@@ -123,6 +123,7 @@ def action_plan(
             "endpoint": inference_cfg.get("endpoint"),
             "model": inference_cfg.get("model"),
             "credential_env": inference_cfg.get("credential_env"),
+            "credential_default": inference_cfg.get("credential_default"),
         },
         "policy_additions": (
             blueprint.get("components", {}).get("policy", {}).get("additions", {})
@@ -200,6 +201,13 @@ def action_apply(
     if credential_env:
         credential = os.environ.get(credential_env, credential_default)
 
+    # Anthropic uses its own provider type and config key; all others are OpenAI-compatible
+    is_anthropic = provider_type == "anthropic"
+    base_url_config_key = "ANTHROPIC_BASE_URL" if is_anthropic else "OPENAI_BASE_URL"
+    # For OpenAI-compatible providers we always pass the key as OPENAI_API_KEY so that
+    # OpenShell's openai provider type can pick it up regardless of the source env var name.
+    credential_config_key = credential_env or ("ANTHROPIC_API_KEY" if is_anthropic else "OPENAI_API_KEY")
+
     provider_args = [
         "openshell",
         "provider",
@@ -210,9 +218,9 @@ def action_apply(
         provider_type,
     ]
     if credential:
-        provider_args.extend(["--credential", f"OPENAI_API_KEY={credential}"])
+        provider_args.extend(["--credential", f"{credential_config_key}={credential}"])
     if endpoint:
-        provider_args.extend(["--config", f"OPENAI_BASE_URL={endpoint}"])
+        provider_args.extend(["--config", f"{base_url_config_key}={endpoint}"])
 
     run_cmd(provider_args, check=False, capture=True)
 
