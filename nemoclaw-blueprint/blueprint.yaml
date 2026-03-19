@@ -9,12 +9,29 @@ digest: ""  # Computed at release time
 profiles:
   - default
   - ncp
+  - openai
+  - anthropic
+  - groq
+  - together
+  - mistral
+  - google
+  - huggingface
+  - fireworks
+  - openrouter
+  - ollama
+  - lm-studio
+  - localai
   - nim-local
   - vllm
 
 description: |
   NemoClaw blueprint: orchestrates OpenClaw sandbox creation, migration,
-  and NIM/vLLM inference routing inside OpenShell.
+  and LLM inference routing inside OpenShell.
+  Supported providers:
+    Cloud (API key): NVIDIA NIM, NVIDIA NCP, OpenAI, Anthropic, Groq,
+      Together AI, Mistral AI, Google Gemini, Hugging Face, Fireworks AI,
+      OpenRouter (includes free models)
+    Local (no API key): Ollama, LM Studio, LocalAI
 
 components:
   sandbox:
@@ -53,6 +70,99 @@ components:
         model: "nvidia/nemotron-3-nano-30b-a3b"
         credential_env: "OPENAI_API_KEY"
         credential_default: "dummy"
+
+      openai:
+        provider_type: "openai"
+        provider_name: "openai"
+        endpoint: "https://api.openai.com/v1"
+        model: "gpt-4o"
+        credential_env: "OPENAI_API_KEY"
+
+      anthropic:
+        provider_type: "anthropic"
+        provider_name: "anthropic"
+        endpoint: "https://api.anthropic.com/v1"
+        model: "claude-3-7-sonnet-20250219"
+        credential_env: "ANTHROPIC_API_KEY"
+
+      groq:
+        provider_type: "openai"
+        provider_name: "groq"
+        endpoint: "https://api.groq.com/openai/v1"
+        model: "llama-3.3-70b-versatile"
+        credential_env: "GROQ_API_KEY"
+
+      together:
+        provider_type: "openai"
+        provider_name: "together"
+        endpoint: "https://api.together.xyz/v1"
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        credential_env: "TOGETHER_API_KEY"
+
+      mistral:
+        provider_type: "openai"
+        provider_name: "mistral"
+        endpoint: "https://api.mistral.ai/v1"
+        model: "mistral-large-latest"
+        credential_env: "MISTRAL_API_KEY"
+
+      google:
+        provider_type: "openai"
+        provider_name: "google"
+        endpoint: "https://generativelanguage.googleapis.com/v1beta/openai"
+        model: "gemini-2.0-flash"
+        credential_env: "GOOGLE_API_KEY"
+
+      # --- Open-source cloud providers ---
+
+      huggingface:
+        provider_type: "openai"
+        provider_name: "huggingface"
+        endpoint: "https://api-inference.huggingface.co/v1"
+        model: "meta-llama/Llama-3.3-70B-Instruct"
+        credential_env: "HF_TOKEN"
+
+      fireworks:
+        provider_type: "openai"
+        provider_name: "fireworks"
+        endpoint: "https://api.fireworks.ai/inference/v1"
+        model: "accounts/fireworks/models/llama-v3p3-70b-instruct"
+        credential_env: "FIREWORKS_API_KEY"
+
+      openrouter:
+        provider_type: "openai"
+        provider_name: "openrouter"
+        endpoint: "https://openrouter.ai/api/v1"
+        # Default to a free model so a fresh install works without credits
+        model: "meta-llama/llama-3.3-70b-instruct:free"
+        credential_env: "OPENROUTER_API_KEY"
+
+      # --- Local runtimes (no API key required) ---
+
+      ollama:
+        provider_type: "openai"
+        provider_name: "ollama-local"
+        endpoint: "http://host.openshell.internal:11434/v1"
+        model: "llama3.3"
+        credential_env: ""
+        credential_default: "no-key"
+
+      lm-studio:
+        provider_type: "openai"
+        provider_name: "lm-studio-local"
+        endpoint: "http://host.openshell.internal:1234/v1"
+        # LM Studio model ID is whatever is currently loaded in the server
+        model: ""
+        credential_env: ""
+        credential_default: "no-key"
+
+      localai:
+        provider_type: "openai"
+        provider_name: "localai-local"
+        endpoint: "http://host.openshell.internal:8080/v1"
+        model: ""
+        credential_env: ""
+        credential_default: "no-key"
 
   policy:
     base: "sandboxes/openclaw/policy.yaml"

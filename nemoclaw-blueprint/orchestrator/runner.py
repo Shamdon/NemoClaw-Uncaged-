@@ -123,6 +123,7 @@ def action_plan(
             "endpoint": inference_cfg.get("endpoint"),
             "model": inference_cfg.get("model"),
             "credential_env": inference_cfg.get("credential_env"),
+            "credential_default": inference_cfg.get("credential_default"),
         },
         "policy_additions": (
             blueprint.get("components", {}).get("policy", {}).get("additions", {})
@@ -193,12 +194,21 @@ def action_apply(
     endpoint: str = inference_cfg.get("endpoint", "")
     model: str = inference_cfg.get("model", "")
 
-    # Resolve credential from environment
-    credential_env = inference_cfg.get("credential_env")
+    # Resolve credential from environment.
+    # credential_env is empty for keyless local providers (Ollama, LM Studio, LocalAI).
+    credential_env = inference_cfg.get("credential_env") or ""
     credential_default: str = inference_cfg.get("credential_default", "")
     credential = ""
     if credential_env:
         credential = os.environ.get(credential_env, credential_default)
+    elif credential_default:
+        # Keyless local provider — use placeholder so OpenShell is satisfied
+        credential = credential_default
+
+    # Anthropic uses its own provider type and config key; all others are OpenAI-compatible
+    is_anthropic = provider_type == "anthropic"
+    base_url_config_key = "ANTHROPIC_BASE_URL" if is_anthropic else "OPENAI_BASE_URL"
+    credential_config_key = credential_env or ("ANTHROPIC_API_KEY" if is_anthropic else "OPENAI_API_KEY")
 
     provider_args = [
         "openshell",
@@ -210,19 +220,24 @@ def action_apply(
         provider_type,
     ]
     if credential:
-        provider_args.extend(["--credential", f"OPENAI_API_KEY={credential}"])
+        provider_args.extend(["--credential", f"{credential_config_key}={credential}"])
     if endpoint:
-        provider_args.extend(["--config", f"OPENAI_BASE_URL={endpoint}"])
+        provider_args.extend(["--config", f"{base_url_config_key}={endpoint}"])
 
     run_cmd(provider_args, check=False, capture=True)
 
     # Step 3: Set inference route
     progress(70, "Setting inference route")
-    run_cmd(
-        ["openshell", "inference", "set", "--provider", provider_name, "--model", model],
-        check=False,
-        capture=True,
-    )
+    if not model:
+        # Some local providers (e.g. LM Studio) report the active model at query time;
+        # skip setting a model here and let the provider serve whatever is loaded.
+        log(f"Note: no model pinned for provider '{provider_name}' — model will be resolved at inference time.")
+    else:
+        run_cmd(
+            ["openshell", "inference", "set", "--provider", provider_name, "--model", model],
+            check=False,
+            capture=True,
+        )
 
     # Step 4: Save run state
     progress(85, "Saving run state")
